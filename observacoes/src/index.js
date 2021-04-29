@@ -1,0 +1,70 @@
+const express = require("express");
+const app = express();
+app.use(express.json());
+const axios = require("axios");
+const ObsIdLojista = {};
+
+const { v4: uuidv4 } = require("uuid");
+
+const funcoes = {
+  ObservacaoClassificada: (observacao) => {
+    const observacoes = ObsIdLojista[observacao.lojistaId];
+    const obsParaAtualizar = observacoes.status;
+    axios.post("http://localhost:8000/eventos", {
+      tipo: "ObservacaoAtua",
+      dados: {
+        id: observacao.id,
+        lojista: observacao.lojista,
+        lojistaId: observacao.lojistaId,
+        status: observacao.status,
+      },
+    });
+  }, //ObservacaoClassificada
+}; //const funcoes
+app.post("/eventos", (req, res) => {
+  try {
+    funcoes[req.body.tipo](req.body.dados);
+  } catch (err) {}
+  res.status(200).send({ msg: "ok" });
+});
+app.put("/lojistas/:id/observacoes", async (req, res) => {
+  const idObs = uuidv4();
+  const {
+    cadastro: [
+      {
+        INSCRICAO: [INSCRICAO],
+        nomeFantasia: nomeFantasia,
+        razaoSocial: razaoSocial,
+        Endereco: Endereco,
+        Numero: Numero,
+        CEP: CEP,
+        Telefone: Telefone,
+        Email: Email,
+      },
+    ],
+  } = req.body;
+  const ObsLojista = ObsIdLojista[req.params.id] || [];
+  ObsLojista.push({
+    id: idObs,
+    cadastro,
+    status: "aguardando",
+  });
+  ObsIdLojista[req.params.id] = ObsLojista;
+
+  await axios.post("http://localhost:8000/eventos", {
+    tipo: "ObservacaoCriada",
+    dados: {
+      id: idObs,
+      cadastro,
+      lojistaId: req.params.id,
+      status: "aguardando",
+    },
+  });
+  res.status(201).send(ObsLojista);
+}); //app.put()
+app.get("/lojistas/:id/observacoes", (req, res) => {
+  res.send(ObsIdLojista[req.params.id] || []);
+});
+app.listen(500, () => {
+  console.log("Lojistas. Porta 5000");
+});
